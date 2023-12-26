@@ -27,7 +27,6 @@ type calcReq struct {
 	IntervalParam        int          `json:"time_interval"`
 	PeoplePerMinuteParam int          `json:"people_per_minute"`
 	Params               []modelParam `json:"modelings"`
-	InputToken           string       `json:"token"`
 }
 
 func Calculate(w http.ResponseWriter, r *http.Request) {
@@ -41,11 +40,6 @@ func Calculate(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(req); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
-	if req.InputToken != token {
-		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -78,27 +72,36 @@ func worker(id int, interval int, peoplePerMinute int, params []modelParam) {
 	}
 
 	// Convert data to JSON
-	postBody, err := json.Marshal(requestData)
+	putBody, err := json.Marshal(requestData)
 	if err != nil {
 		fmt.Println("Error encoding JSON:", err)
 		return
 	}
 
-	postURL := "http://localhost:8000/api/applications/write_result_modeling/"
+	putURL := "http://localhost:8000/api/applications/write_result_modeling/"
 
 	// Make the HTTP POST request
-	resp, err := http.Post(postURL, "application/json", bytes.NewBuffer(postBody))
+	req, err := http.NewRequest("PUT", putURL, bytes.NewBuffer(putBody))
 	if err != nil {
-		fmt.Println("Error making POST request:", err)
+		fmt.Println("Error creating PUT request:", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("Error making PUT request:", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	// Check the response status code
+	// Проверьте код статуса ответа
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("Error: Unexpected status code %d\n", resp.StatusCode)
 		return
 	}
+
+	fmt.Println("PUT request successful")
 }
 
 func poissonDistribution(lambda float64) int {
